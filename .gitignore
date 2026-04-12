@@ -1,7 +1,30 @@
-venv/
-__pycache__/
+# --- Security ---
 .env
-*.mp3
-data/vector_db/
+.env.local
+
+# --- Python ---
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.log
+
+# --- Machine Learning & Data ---
+backend/data/vector_db/
+backend/data/audio_outputs/*
+!backend/data/audio_outputs/.gitkeep
+backend/data/guidelines/*.pdf
+*.pt
+*.onnx
+*.bin
+
+# --- Frontend ---
 node_modules/
 .next/
+out/
+build/
+.vercel/
+
+# --- System ---
+.DS_Store
+Thumbs.db
