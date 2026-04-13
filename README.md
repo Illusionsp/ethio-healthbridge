@@ -17,7 +17,10 @@ Ethio-HealthBridge is an AI-powered system designed to provide grounded medical 
 * **Frontend:** Next.js 14 + Tailwind CSS
 * **Backend:** FastAPI (Python)
 
- ethio-healthbridge/
+## 📂 Project Architecture
+
+```text
+ethio-healthbridge/
 ├── backend/                        # Python / FastAPI Root
 │   ├── main.py                     # System Orchestrator & API Logic
 │   ├── core/                       # The "Engines" of the AI
