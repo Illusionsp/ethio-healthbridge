@@ -10,6 +10,10 @@ import google.generativeai as genai
 
 
 class EthioRAG:
+
+    def _save_index(self):
+        with open(self.index_path, "w", encoding="utf-8") as f:
+            json.dump(self.index, f, ensure_ascii=False, indent=2)
     def __init__(
         self,
         index_path: str = "backend/data/vector_db/moh_index.json",
@@ -84,7 +88,7 @@ class EthioRAG:
         pages = self.load_pdf_pages(pdf_path)
         print(f"Total extracted pages: {len(pages)}")
 
-        # Same spirit as your plan: emergency triage + common illnesses slice
+        # emergency triage + common illnesses slice
         selected_pages = pages[8:18] + pages[15:35]
         print(f"Selected pages for Day-1 indexing: {len(selected_pages)}")
 
@@ -110,5 +114,23 @@ class EthioRAG:
         self.index = new_index
         self._save_index()
         print(f"Indexing done: {len(self.index)} chunks saved to {self.index_path}")
+
+    def retrieve(self, question: str, k: int = 4) -> List[Dict[str, Any]]:
+        if not self.index:
+            raise ValueError("Index is empty. Run index_guidelines() first.")
+
+        q_emb = self.embed_text(question)
+
+        scored = []
+        q_norm = np.linalg.norm(q_emb) + 1e-8
+
+        for item in self.index:
+            d_emb = np.array(item["embedding"], dtype=np.float32)
+            score = float(np.dot(q_emb, d_emb) / (q_norm * (np.linalg.norm(d_emb) + 1e-8)))
+            scored.append((score, item))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        top = [item for _, item in scored[:k]]
+        return top
 
    
