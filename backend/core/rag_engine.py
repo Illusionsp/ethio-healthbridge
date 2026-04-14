@@ -10,10 +10,6 @@ import google.generativeai as genai
 
 
 class EthioRAG:
-
-    def _save_index(self):
-        with open(self.index_path, "w", encoding="utf-8") as f:
-            json.dump(self.index, f, ensure_ascii=False, indent=2)
     def __init__(
         self,
         index_path: str = "backend/data/vector_db/moh_index.json",
@@ -166,4 +162,25 @@ QUESTION:
             "sources": [{"page": d["page"], "id": d["id"]} for d in docs],
         }
 
-   
+    
+    def _save_index(self):
+        with open(self.index_path, "w", encoding="utf-8") as f:
+            json.dump(self.index, f, ensure_ascii=False)
+
+    def _load_index(self):
+        with open(self.index_path, "r", encoding="utf-8") as f:
+            self.index = json.load(f)
+
+
+if __name__ == "__main__":
+    rag = EthioRAG()
+
+    # Day-1 index build (run once, then comment out)
+    rag.index_guidelines("backend/data/guidelines/Ethiopian Primary care clinical guideline 2017 - DIGITAL final draft (1).pdf")
+
+    tests = ["ራሴን ያመኛል", "ትኩሳት አለኝ", "የመተንፈስ ችግር አለኝ"]
+    for q in tests:
+        res = rag.query(q, k=4)
+        print("\nQ:", q)
+        print("A:", res["answer"])
+        print("Sources:", res["sources"])
