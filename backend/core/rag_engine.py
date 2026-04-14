@@ -133,4 +133,37 @@ class EthioRAG:
         top = [item for _, item in scored[:k]]
         return top
 
+    def query(self, question: str, k: int = 4) -> Dict[str, Any]:
+        docs = self.retrieve(question, k=k)
+        context_blocks = []
+
+        for d in docs:
+            context_blocks.append(f"[Page {d['page']}] {d['text']}")
+
+        context = "\n\n".join(context_blocks)
+
+        prompt = f"""
+You are an Ethiopian clinical assistant.
+
+STRICT RULES:
+1) Answer only from the CONTEXT.
+2) Answer in clear Amharic.
+3) If context is not enough, say exactly: "አልታወቀም"
+4) Keep advice safe and practical.
+5) For emergency danger signs, clearly tell user to seek urgent care.
+
+CONTEXT:
+{context}
+
+QUESTION:
+{question}
+""".strip()
+
+        response = self.llm.generate_content(prompt)
+
+        return {
+            "answer": (response.text or "").strip(),
+            "sources": [{"page": d["page"], "id": d["id"]} for d in docs],
+        }
+
    
