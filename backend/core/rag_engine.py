@@ -1,38 +1,62 @@
 import os
+import json
+import time
 from pathlib import Path
-import chromadb
-from chromadb.utils import embedding_functions
-from pypdf import PdfReader
-from google import genai
+from typing import List, Dict, Any
+
+import numpy as np
+from PyPDF2 import PdfReader
+import google.generativeai as genai
+
 
 class EthioRAG:
-    def __init__(self, path_dir="backend/data/vector_db"):
+    def __init__(
+        self,
+        index_path: str = "backend/data/vector_db/moh_index.json",
+        gemini_model: str = "gemini-1.5-flash",
+        embedding_model: str = "models/text-embedding-004",
+    ):
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            raise ValueError("GOOGLE_API_KEY is missing. Set it in your environment.")
 
-        self.path_dir = path_dir
+        genai.configure(api_key=api_key)
+        self.llm = genai.GenerativeModel(gemini_model)
+        self.embedding_model = embedding_model
 
-        self.client_gemini = genai.Client(
-            api_key=os.getenv("GOOGLE_API_KEY")
-        )
+        self.index_path = Path(index_path)
+        self.index_path.parent.mkdir(parents=True, exist_ok=True)
 
+        self.index: List[Dict[str, Any]] = []
+        if self.index_path.exists():
+            self._load_index()
 
-        self.client = chromadb.PersistentClient(path=path_dir)
-
-        self.embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name="intfloat/multilingual-e5-large"
-        )
-
-        self.collection = self.client.get_or_create_collection(
-            name="ethio_health",
-            embedding_function=self.embedding_function
-        )
-
-    def load_pdf(self, pdf_path):
+   
+    def load_pdf_pages(self, pdf_path: str):
         reader = PdfReader(pdf_path)
-        texts = []
+        pages = []
 
         for i, page in enumerate(reader.pages):
-            text = page.extract_text()
+            text = page.extract_text() or ""
+            text = " ".join(text.split())
             if text:
-                texts.append((f"page_{i}", text))
+             pages.append({"page_num": i + 1, "text": text})
 
-        return texts
+        return pages
+
+    @staticmethod
+    def split_text(text: str, chunk_size: int = 700, overlap: int = 120) -> List[str]:
+        chunks = []
+        start = 0
+        n = len(text)
+
+        while start < n:
+            end = min(start + chunk_size, n)
+            chunk = text[start:end].strip()
+            if chunk:
+                chunks.append(chunk)
+            if end == n:
+                break
+            start += chunk_size - overlap
+
+        return chunks
