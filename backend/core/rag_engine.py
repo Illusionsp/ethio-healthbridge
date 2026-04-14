@@ -60,3 +60,23 @@ class EthioRAG:
             start += chunk_size - overlap
 
         return chunks
+    
+    def embed_text(self, text: str) -> np.ndarray:
+        # Retry once for transient API/network issues
+        for attempt in range(2):
+            try:
+                result = genai.embed_content(
+                    model=self.embedding_model,
+                    content=text,
+                    task_type="retrieval_document",
+                )
+                vector = np.array(result["embedding"], dtype=np.float32)
+                return vector
+            except Exception:
+                if attempt == 1:
+                    raise
+                time.sleep(1.2)
+
+        raise RuntimeError("Embedding failed unexpectedly.")
+
+   
