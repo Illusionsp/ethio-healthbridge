@@ -1,0 +1,7 @@
+venv/
+__pycache__/
+data/audio_outputs/
+data/temp/
+data/vector_db/
+*.pyc
+.env

@@ -6,12 +6,15 @@ def generate_voice_response(text: str, filename: str = "ai_response.mp3") -> str
     synthesis_input = texttospeech.SynthesisInput(text=text)
 
     voice = texttospeech.VoiceSelectionParams(
-        language_code="am-ET", 
-        ssml_gender=texttospeech.SsmlVoiceGender.NEUTRAL
+        language_code="am-ET",
+        name="am-ET-Wavenet-A",
+        ssml_gender=texttospeech.SsmlVoiceGender.FEMALE
     )
 
     audio_config = texttospeech.AudioConfig(
-        audio_encoding=texttospeech.AudioEncoding.MP3
+        audio_encoding=texttospeech.AudioEncoding.MP3,
+        speaking_rate=0.90,
+        pitch=0.0
     )
 
     try:
