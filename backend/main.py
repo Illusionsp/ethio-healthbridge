@@ -4,13 +4,17 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import os
 import shutil
+from dotenv import load_dotenv
 from cachetools import TTLCache
-from .core.stt_engine import transcribe_amharic
-from .core.tts_engine import generate_voice_response
-from .core.rag_engine import query_medical_guidelines
-from .core.vision_eval import analyze_medicine_label
-from .utils.emergency import check_red_flags, get_emergency_message
-from .utils.mapping import extract_known_symptoms
+
+load_dotenv() 
+
+from core.stt_engine import transcribe_amharic
+from core.tts_engine import generate_voice_response
+from core.rag_engine import query_medical_guidelines
+from core.vision_eval import analyze_medicine_label
+from utils.emergency import check_red_flags, get_emergency_message
+from utils.mapping import extract_known_symptoms
 
 app = FastAPI(title="Ethio-HealthBridge API")
 
@@ -22,8 +26,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-os.makedirs("backend/data/audio_outputs", exist_ok=True)
-os.makedirs("backend/data/temp", exist_ok=True)
+# FIXED: Removed 'backend/' so it uses the correct current folder
+os.makedirs("data/audio_outputs", exist_ok=True)
+os.makedirs("data/temp", exist_ok=True)
 
 class TextQuery(BaseModel):
     text: str
@@ -32,7 +37,8 @@ response_cache = TTLCache(maxsize=100, ttl=3600)
 
 @app.post("/api/voice-chat")
 async def voice_chat(audio: UploadFile = File(...)):
-    temp_audio_path = f"backend/data/temp/{audio.filename}"
+    # FIXED: Removed 'backend/'
+    temp_audio_path = f"data/temp/{audio.filename}"
     with open(temp_audio_path, "wb") as buffer:
         shutil.copyfileobj(audio.file, buffer)
         
@@ -66,6 +72,10 @@ async def voice_chat(audio: UploadFile = File(...)):
             "emergency": emergency_status
         }
     except Exception as e:
+        print("\n❌--- FASTAPI CRASH REPORT ---❌")
+        import traceback
+        traceback.print_exc()
+        print("❌----------------------------❌\n")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if os.path.exists(temp_audio_path):
@@ -100,11 +110,16 @@ async def text_chat(query: TextQuery):
             "emergency": emergency_status
         }
     except Exception as e:
+        print("\n❌--- FASTAPI CRASH REPORT ---❌")
+        import traceback
+        traceback.print_exc()
+        print("❌----------------------------❌\n")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/vision-analyze")
 async def vision_analyze(image: UploadFile = File(...)):
-    temp_img_path = f"backend/data/temp/{image.filename}"
+    # FIXED: Removed 'backend/'
+    temp_img_path = f"data/temp/{image.filename}"
     with open(temp_img_path, "wb") as buffer:
         shutil.copyfileobj(image.file, buffer)
         
@@ -117,9 +132,11 @@ async def vision_analyze(image: UploadFile = File(...)):
         if os.path.exists(temp_img_path):
             os.remove(temp_img_path)
 
+# THIS IS THE PART THAT WAS CAUSING THE 404!
 @app.get("/api/audio/{filename}")
 async def get_audio(filename: str):
-    file_path = f"backend/data/audio_outputs/{filename}"
+    # FIXED: Removed 'backend/'
+    file_path = f"data/audio_outputs/{filename}"
     if os.path.exists(file_path):
         return FileResponse(file_path)
     raise HTTPException(status_code=404, detail="Audio not found")

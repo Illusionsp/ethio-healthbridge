@@ -1,14 +1,28 @@
-fastapi==0.110.0
-uvicorn==0.29.0
+# --- Web & Server ---
+fastapi==0.135.3
+uvicorn[standard]
 python-multipart==0.0.9
-pydantic==2.6.4
-faster-whisper==1.0.1
-google-cloud-texttospeech==2.16.2
-google-generativeai==0.3.2
-chromadb==0.4.24
-llama-index==0.10.20
-llama-index-vector-stores-chroma==0.1.6
-llama-index-embeddings-huggingface==0.2.0
-llama-index-llms-gemini==0.1.6
-sentence-transformers==2.7.0
-cachetools==5.3.3
+python-dotenv==1.0.1
+anyio
+typing-inspection>=0.4.2
+email-validator>=2.3.0
+
+# --- Voice & Audio ---
+faster-whisper==1.2.1
+pyaudio==0.2.14
+sounddevice==0.5.3
+
+# --- Cloud AI 'The Brain' ---
+google-generativeai>=0.5.4
+
+# --- RAG & Database (The Version Match) ---
+llama-index-core>=0.13.0,<0.15.0
+llama-index-llms-gemini>=0.6.2
+llama-index-embeddings-gemini>=0.4.0
+llama-index-vector-stores-chroma>=0.5.5
+llama-index-readers-file>=0.4.0
+chromadb==1.5.7
+pypdf==5.1.0
+
+# --- Amharic Text Processing ---
+amharicNLP==1.1.0

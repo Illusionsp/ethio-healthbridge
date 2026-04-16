@@ -4,15 +4,17 @@ from llama_index.core import VectorStoreIndex
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.core import StorageContext, Settings
 from llama_index.llms.gemini import Gemini
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from llama_index.embeddings.gemini import GeminiEmbedding
 
 try:
-    Settings.llm = Gemini(model="models/gemini-1.5-flash")
-    Settings.embed_model = HuggingFaceEmbedding(model_name="intfloat/multilingual-e5-large")
+    # 1. FIXED: Upgraded to Gemini 2.5 Flash and changed "model" to "model_name"
+    Settings.llm = Gemini(model_name="models/gemini-2.5-flash")
+    Settings.embed_model = GeminiEmbedding(model_name="models/text-embedding-004")
 except Exception as e:
     print(f"Warning: Could not initialize Gemini or Embedding Model. {e}")
 
-DB_PATH = "backend/data/vector_db"
+# 2. FIXED: Path updated so it doesn't create nested backend/backend/data folders
+DB_PATH = "data/vector_db"
 
 def get_db_collection():
     os.makedirs(DB_PATH, exist_ok=True)
@@ -23,6 +25,8 @@ def query_medical_guidelines(query_text: str) -> str:
     print(f"🔍 RAG query: {query_text}")
     try:
         collection = get_db_collection()
+        
+        # Fallback if DB is empty (First Run)
         if collection.count() == 0:
             return _basic_llm_response(query_text)
             
