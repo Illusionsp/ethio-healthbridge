@@ -1,23 +1,67 @@
+# ==========================================
+# 1. Credentials & Secrets (CRITICAL)
+# ==========================================
 .env
 .env.local
+.env.*.local
+*.pem
+*.key
+
+# ==========================================
+# 2. Python Backend (FastAPI / LlamaIndex)
+# ==========================================
+# Environments
 venv/
 env/
+ENV/
+.venv/
+.env/
+
+# Caches and Compiled files
 __pycache__/
 *.py[cod]
+*$py.class
+.pytest_cache/
+.ipynb_checkpoints/
 *.log
+
+# ==========================================
+# 3. Medical Data & AI (Ethio-HealthBridge)
+# ==========================================
+# Ignore the raw medical documents (Physical PDFs)
+backend/data/guidelines/*.pdf
+
+# Ignore the vector database (Large binary files)
 backend/data/vector_db/
+
+# Ignore persistent chat history (Private user data)
+backend/data/storage/chat_store.json
+
+# Audio Processing artifacts
 backend/data/audio_outputs/*
 !backend/data/audio_outputs/.gitkeep
+backend/data/temp/
+
+# Model Weights (if you use local models)
 *.pt
 *.onnx
 *.bin
+
+# ==========================================
+# 4. Frontend (Next.js / React)
+# ==========================================
 node_modules/
 .next/
 out/
 build/
 .vercel/
+*.tsbuildinfo
+next-env.d.ts
+
+# ==========================================
+# 5. System & IDE Files
+# ==========================================
 .DS_Store
 Thumbs.db
-backend/venv/
-backend/__pycache__/
-backend/data/temp/
+.vscode/
+.idea/

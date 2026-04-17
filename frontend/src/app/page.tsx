@@ -8,6 +8,31 @@ import { useVoiceProcessor } from "../hooks/useVoiceProcessor";
 import { api } from "../lib/api";
 import { SendHorizontal, AlertTriangle } from "lucide-react";
 
+const EmergencyTransportButton = () => {
+    const [status, setStatus] = useState<"idle" | "booking" | "booked">("idle");
+
+    return (
+        <button
+            type="button"
+            className={`inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all shadow-md active:scale-95 w-fit ${status === "booked"
+                ? "bg-gradient-to-r from-green-600 to-green-800 text-white"
+                : "bg-gradient-to-r from-red-600 to-red-800 hover:from-red-500 hover:to-red-700 text-white"
+                }`}
+            onClick={() => {
+                if (status === "idle") {
+                    setStatus("booking");
+                    setTimeout(() => setStatus("booked"), 2500);
+                }
+            }}
+            disabled={status !== "idle"}
+        >
+            {status === "idle" && "🚑 Request Emergency Transport (አምቡላንስ ጥራ)"}
+            {status === "booking" && <span className="animate-pulse">🚑 Booking ride... (አምቡላንስ እየተጠራ ነው...)</span>}
+            {status === "booked" && "✅ Ride Booked! (አምቡላንስ ተጠርቷል)"}
+        </button>
+    );
+};
+
 type Message = {
     id: string;
     role: "user" | "assistant";
@@ -179,42 +204,48 @@ export default function Home() {
             </header>
 
             {/* Chat History Area */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 scroll-smooth pb-32 z-10">
+            <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 scroll-smooth z-10 w-full mb-2">
                 <div className="max-w-3xl mx-auto space-y-6 flex flex-col">
                     {messages.map((msg) => (
                         <div key={msg.id} className={`flex flex-col max-w-[85%] ${msg.role === "user" ? "self-end items-end" : "self-start items-start"}`}>
                             {/* Emergency Badge */}
                             {msg.isEmergency && (
-                                <div className="mb-2 inline-flex items-center gap-2 bg-red-700/80 border border-red-500 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse shadow-lg">
-                                    <AlertTriangle className="w-4 h-4" />
-                                    ድንገተኛ (RED FLAG DETECTED)
+                                <div className="mb-3 flex flex-col gap-2">
+                                    <div className="inline-flex items-center gap-2 bg-red-700/80 border border-red-500 text-white px-3 py-2 rounded-full text-sm font-bold shadow-lg shadow-red-900/50 w-fit animate-pulse">
+                                        <AlertTriangle className="w-5 h-5" />
+                                        ድንገተኛ (RED FLAG DETECTED)
+                                    </div>
+                                    <EmergencyTransportButton />
                                 </div>
                             )}
 
                             {/* Bubble */}
-                            <div className={`px-5 py-4 rounded-3xl shadow-md ${msg.role === "user"
+                            <div className={`px-5 py-4 rounded-3xl shadow-md flex flex-col gap-3 max-w-full ${msg.role === "user"
                                 ? "bg-gradient-to-br from-[#10562e] to-[#0a351c] text-[#e8f5e9] border border-[#1b7b43] rounded-br-none"
-                                : "bg-[#3e2723] text-[#f7eedf] border border-[#5d4037] rounded-bl-none border-l-4 border-l-yellow-500"
+                                : "bg-[#3e2723] text-[#f7eedf] border border-[#5d4037] rounded-bl-none border-l-4 border-l-yellow-500 w-fit"
                                 } ${msg.isTemporary ? "animate-pulse italic opacity-80" : ""}`}>
-                                <p className="text-[16px] md:text-lg leading-relaxed whitespace-pre-wrap font-serif tracking-wide">{msg.text}</p>
-                            </div>
+                                <p className="text-[16px] md:text-lg leading-relaxed whitespace-pre-wrap font-serif tracking-wide break-words">{msg.text}</p>
 
-                            {/* Audio Player Attachment (if any) */}
-                            {msg.audioUrl && (
-                                <div className="mt-2 text-[#4d3224]">
-                                    <AudioPlayer audioUrl={msg.audioUrl} autoPlay={true} />
-                                </div>
-                            )}
+                                {/* Audio Player Attachment (if any) */}
+                                {msg.audioUrl && (
+                                    <div className="w-full mt-1 shrink-0">
+                                        <AudioPlayer audioUrl={msg.audioUrl} autoPlay={true} />
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     ))}
 
                     {/* Processing Indicator */}
                     {isProcessing && !messages.some(m => m.isTemporary) && (
-                        <div className="self-start max-w-[85%] px-5 py-4 bg-[#3e2723] border border-[#5d4037] border-l-4 border-l-yellow-500 rounded-3xl rounded-bl-none opacity-80 shadow-md">
-                            <div className="flex gap-2 items-center">
-                                <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-bounce" style={{ animationDelay: "0ms" }} />
-                                <div className="w-2.5 h-2.5 rounded-full bg-yellow-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-                                <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-bounce" style={{ animationDelay: "300ms" }} />
+                        <div className="self-start max-w-[85%] px-5 py-4 bg-[#3e2723] border border-[#5d4037] border-l-4 border-l-yellow-500 rounded-3xl rounded-bl-none opacity-90 shadow-md flex items-center gap-4">
+                            <span className="text-[#f7eedf] text-[15px] animate-pulse italic font-serif">
+                                AI እያሰበ ነው... (AI is thinking...)
+                            </span>
+                            <div className="flex gap-1.5 items-end h-5">
+                                <div className="w-1.5 bg-green-500 rounded-full animate-[bounce_1s_infinite_0ms]" style={{ height: '60%' }} />
+                                <div className="w-1.5 bg-yellow-400 rounded-full animate-[bounce_1s_infinite_150ms]" style={{ height: '100%' }} />
+                                <div className="w-1.5 bg-red-500 rounded-full animate-[bounce_1s_infinite_300ms]" style={{ height: '80%' }} />
                             </div>
                         </div>
                     )}
@@ -224,7 +255,7 @@ export default function Home() {
             </div>
 
             {/* Input Composer Area */}
-            <div className="flex-none p-4 pb-8 md:p-6 bg-gradient-to-t from-[#1b0f0b] via-[#22140e] to-transparent fixed bottom-0 w-full left-0 z-20">
+            <div className="flex-none p-4 pb-8 md:p-6 bg-gradient-to-t from-[#1b0f0b] via-[#22140e] to-[#2e1d15]/50 w-full z-20 border-t border-[#4d3224]/30">
                 <div className="max-w-3xl mx-auto relative">
                     <form onSubmit={handleTextSubmit} className="flex relative bg-[#3e2723] border border-[#5d4037] rounded-[2rem] shadow-2xl focus-within:border-yellow-500 focus-within:ring-2 focus-within:ring-yellow-500/20 transition-all p-1.5">
                         <div className="flex items-end pl-2 pb-1.5">
