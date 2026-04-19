@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-    title: "Ethio-HealthBridge",
+    title: "ጤናለአዳም (Tena LeAdam)",
     description: "Multimodal AI Healthcare Assistant for Ethiopia",
 };
 

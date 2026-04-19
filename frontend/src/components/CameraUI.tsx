@@ -4,7 +4,7 @@ import { Camera } from "lucide-react";
 import { useState, useRef } from "react";
 import { api } from "../lib/api";
 
-export default function CameraUI({ onAnalysisResult }: { onAnalysisResult: (text: string) => void }) {
+export default function CameraUI({ onAnalysisResult }: { onAnalysisResult: (text: string, audioUrl?: string) => void }) {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
 
@@ -23,7 +23,7 @@ export default function CameraUI({ onAnalysisResult }: { onAnalysisResult: (text
             const res = await api.post("/api/vision-analyze", formData, {
                 headers: { "Content-Type": "multipart/form-data" }
             });
-            onAnalysisResult(res.data.analysis);
+            onAnalysisResult(res.data.analysis, res.data.audio_url);
         } catch (error) {
             onAnalysisResult("ይቅርታ፣ ችግር ተፈጥሯል። (Sorry, an error occurred analyzing the image.)");
         } finally {
@@ -45,8 +45,8 @@ export default function CameraUI({ onAnalysisResult }: { onAnalysisResult: (text
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isAnalyzing}
                 className={`flex items-center justify-center p-3 rounded-full transition-all duration-300 ${isAnalyzing
-                        ? 'text-[#a1887f] bg-[#5d4037]/50 cursor-not-allowed border border-[#5d4037]'
-                        : 'text-[#d4bca4] bg-[#5d4037] hover:text-amber-200 hover:bg-[#6d4c41] border border-[#d4bca4]/30'
+                    ? 'text-[#a1887f] bg-[#5d4037]/50 cursor-not-allowed border border-[#5d4037]'
+                    : 'text-[#d4bca4] bg-[#5d4037] hover:text-amber-200 hover:bg-[#6d4c41] border border-[#d4bca4]/30'
                     }`}
                 title="የመድሃኒት ምስል ያስገቡ (Scan Medicine)"
             >
