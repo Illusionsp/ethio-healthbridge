@@ -10,13 +10,12 @@ __pycache__/
 *.log
 
 # --- Machine Learning & Data ---
-backend/data/vector_db/
+# vector_db is committed so teammates don't need to re-ingest
 backend/data/audio_outputs/*
 !backend/data/audio_outputs/.gitkeep
-backend/data/guidelines/*.pdf
+# PDF is committed so teammates have the source document
 *.pt
 *.onnx
-*.bin
 
 # --- Frontend ---
 node_modules/
