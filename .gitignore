@@ -29,10 +29,10 @@ __pycache__/
 # 3. Medical Data & AI (Ethio-HealthBridge)
 # ==========================================
 # Ignore the raw medical documents (Physical PDFs)
-backend/data/guidelines/*.pdf
+# backend/data/guidelines/*.pdf   <-- keep PDFs so teammates can ingest
 
 # Ignore the vector database (Large binary files)
-backend/data/vector_db/
+# backend/data/vector_db/         <-- teammates need to run ingest.py themselves
 
 # Ignore persistent chat history (Private user data)
 backend/data/storage/chat_store.json

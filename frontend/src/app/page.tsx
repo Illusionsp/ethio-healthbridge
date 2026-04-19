@@ -1,313 +1,244 @@
-"use client";
-
-import { useState, useRef, useEffect } from "react";
+﻿"use client";
+import { useState, useRef, useEffect, useCallback } from "react";
+import AppShell from "../components/AppShell";
 import MicButton from "../components/MicButton";
 import AudioPlayer from "../components/AudioPlayer";
 import CameraUI from "../components/CameraUI";
+import FacilityFinder from "../components/FacilityFinder";
+import ChildModeToggle from "../components/ChildModeToggle";
+import FollowUpBanner from "../components/FollowUpBanner";
 import { useVoiceProcessor } from "../hooks/useVoiceProcessor";
+import { useSymptomHistory } from "../hooks/useSymptomHistory";
 import { api } from "../lib/api";
-import { SendHorizontal, AlertTriangle } from "lucide-react";
-
-const EmergencyTransportButton = () => {
-    const [status, setStatus] = useState<"idle" | "booking" | "booked">("idle");
-
-    return (
-        <button
-            type="button"
-            className={`inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all shadow-md active:scale-95 w-fit ${status === "booked"
-                ? "bg-gradient-to-r from-green-600 to-green-800 text-white"
-                : "bg-gradient-to-r from-red-600 to-red-800 hover:from-red-500 hover:to-red-700 text-white"
-                }`}
-            onClick={() => {
-                if (status === "idle") {
-                    setStatus("booking");
-                    setTimeout(() => setStatus("booked"), 2500);
-                }
-            }}
-            disabled={status !== "idle"}
-        >
-            {status === "idle" && "🚑 Request Emergency Transport (አምቡላንስ ጥራ)"}
-            {status === "booking" && <span className="animate-pulse">🚑 Booking ride... (አምቡላንስ እየተጠራ ነው...)</span>}
-            {status === "booked" && "✅ Ride Booked! (አምቡላንስ ተጠርቷል)"}
-        </button>
-    );
-};
+import { SendHorizontal, AlertTriangle, Phone, Trash2, Wifi, WifiOff, Sparkles } from "lucide-react";
 
 type Message = {
-    id: string;
-    role: "user" | "assistant";
-    text: string;
-    audioUrl?: string | null;
-    isEmergency?: boolean;
-    isTemporary?: boolean;
+    id: string; role: "user" | "assistant";
+    text: string; audioUrl?: string | null;
+    isEmergency?: boolean; isTemporary?: boolean; timestamp?: number;
 };
 
-export default function Home() {
+const WELCOME: Message = {
+    id: "welcome", role: "assistant", timestamp: Date.now(),
+    text: "ጤና ይስጥልኝ! እኔ Ethio-HealthBridge ነኝ — የኢትዮጵያ ጤና ሚኒስቴር መመሪያዎች ላይ የተመሰረተ AI ረዳት።\n\nAfaan Oromoo: Baga nagaan dhuftan!\n\nTigrinya: ሰላም! ብድምጺ ወይ ብጽሑፍ ሕማምካ ንገረኒ።\n\n(Speak or type in Amharic, Afaan Oromoo, or Tigrinya)"
+};
+
+function TypingText({ text }: { text: string }) {
+    const [shown, setShown] = useState("");
+    const [done, setDone] = useState(false);
+    useEffect(() => {
+        setShown(""); setDone(false);
+        let i = 0;
+        const id = setInterval(() => { i++; setShown(text.slice(0, i)); if (i >= text.length) { clearInterval(id); setDone(true); } }, 14);
+        return () => clearInterval(id);
+    }, [text]);
+    return <span className={!done ? "typing-cursor" : ""}>{shown}</span>;
+}
+
+function EmergencyCard() {
+    const [status, setStatus] = useState<"idle" | "booking" | "booked">("idle");
+    return (
+        <div className="mt-2 p-3 rounded-xl bg-red-950/40 border border-red-500/40 space-y-2">
+            <div className="flex items-center gap-2 text-red-400 font-bold text-xs">
+                <AlertTriangle className="w-3.5 h-3.5 animate-pulse" /> RED FLAG DETECTED
+            </div>
+            <div className="flex gap-2 flex-wrap">
+                <a href="tel:912" className="flex items-center gap-1 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-full transition-colors">
+                    <Phone className="w-3 h-3" /> Call 912
+                </a>
+                <button onClick={() => { if (status === "idle") { setStatus("booking"); setTimeout(() => setStatus("booked"), 2500); } }}
+                    disabled={status !== "idle"}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all ${status === "booked" ? "bg-emerald-600 text-white" : "bg-red-700 hover:bg-red-600 text-white"}`}>
+                    {status === "idle" && "🚑 አምቡላንስ ጥራ"}{status === "booking" && <span className="animate-pulse">Booking...</span>}{status === "booked" && "✅ Booked!"}
+                </button>
+            </div>
+        </div>
+    );
+}
+
+export default function ChatPage() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [isClient, setIsClient] = useState(false);
-
-    // Initialize standard prompt if empty
-    useEffect(() => {
-        setIsClient(true);
-        const saved = localStorage.getItem("ethio-chat-history");
-        if (saved) {
-            setMessages(JSON.parse(saved));
-        } else {
-            setMessages([{
-                id: "system-1",
-                role: "assistant",
-                text: "ጤና ይስጥልኝ፣ የኢትዮ ሄልዝ-ብሪጅ (Ethio-HealthBridge) ረዳት ነኝ። በድምፅ ወይም በፅሁፍ የህክምና ጥያቄዎን ሊጠይቁኝ ይችላሉ። ወይንም የመድሃኒትዎን ምስል በማንሳት ማብራሪያ ማግኘት ይችላሉ።\n(Hello, I am the Ethio-HealthBridge assistant. You can ask medical questions via text or voice, or upload a medicine label for analysis.)"
-            }]);
-        }
-    }, []);
-
-    // Save to local storage on message change
-    useEffect(() => {
-        if (isClient && messages.length > 0) {
-            // Filter out temporary messages before saving
-            const persistable = messages.filter(m => !m.isTemporary);
-            localStorage.setItem("ethio-chat-history", JSON.stringify(persistable));
-        }
-    }, [messages, isClient]);
-
     const [inputText, setInputText] = useState("");
     const [isRecording, setIsRecording] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
-
-    const messagesEndRef = useRef<HTMLDivElement>(null);
-    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const [isChildMode, setIsChildMode] = useState(false);
+    const [isOnline, setIsOnline] = useState(true);
+    const [showFollowUp, setShowFollowUp] = useState(true);
+    const [newIds, setNewIds] = useState<Set<string>>(new Set());
+    const endRef = useRef<HTMLDivElement>(null);
+    const mediaRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<BlobPart[]>([]);
-
     const { processVoice } = useVoiceProcessor();
+    const { addEntry, getRecentEntry } = useSymptomHistory();
 
-    // Scroll to bottom on new message
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages]);
+        setIsClient(true);
+        if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => { });
+        const on = () => setIsOnline(true), off = () => setIsOnline(false);
+        window.addEventListener("online", on); window.addEventListener("offline", off);
+        setIsOnline(navigator.onLine);
+        const saved = localStorage.getItem("ethio-chat-history");
+        setMessages(saved ? JSON.parse(saved) : [WELCOME]);
+        return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
+    }, []);
 
-    const addMessage = (msg: Omit<Message, "id">) => {
-        setMessages(prev => [...prev, { ...msg, id: Date.now().toString() + Math.random().toString() }]);
-    };
+    useEffect(() => {
+        if (isClient && messages.length > 0)
+            localStorage.setItem("ethio-chat-history", JSON.stringify(messages.filter(m => !m.isTemporary)));
+    }, [messages, isClient]);
 
-    const handleTextSubmit = async (e?: React.FormEvent) => {
+    useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+    const addMsg = useCallback((msg: Omit<Message, "id">) => {
+        const id = Date.now().toString() + Math.random();
+        setMessages(p => [...p, { ...msg, id, timestamp: Date.now() }]);
+        setNewIds(p => new Set(p).add(id));
+        setTimeout(() => setNewIds(p => { const n = new Set(p); n.delete(id); return n; }), 800);
+    }, []);
+
+    const submit = async (e?: React.FormEvent, override?: string) => {
         e?.preventDefault();
-        if (!inputText.trim() || isProcessing) return;
-
-        const text = inputText;
+        const text = override ?? inputText;
+        if (!text.trim() || isProcessing) return;
         setInputText("");
-        addMessage({ role: "user", text });
+        addMsg({ role: "user", text });
         setIsProcessing(true);
-
         try {
-            const res = await api.post("/api/text-chat", { text });
-            addMessage({
-                role: "assistant",
-                text: res.data.response_text,
-                audioUrl: res.data.audio_url,
-                isEmergency: res.data.emergency
-            });
-        } catch (err) {
-            addMessage({ role: "assistant", text: "ይቅርታ፣ አሁን ላይ አውታረ መረብ አይሰራም። (Network Error)" });
-        } finally {
-            setIsProcessing(false);
-        }
+            const res = await api.post("/api/text-chat", { text, mode: isChildMode ? "child" : "adult" });
+            const { response_text, audio_url, emergency } = res.data;
+            addMsg({ role: "assistant", text: response_text, audioUrl: audio_url, isEmergency: emergency });
+            addEntry(text, response_text);
+        } catch { addMsg({ role: "assistant", text: "ይቅርታ፣ አውታረ መረብ አይሰራም። (Network Error)" }); }
+        finally { setIsProcessing(false); }
     };
 
-    const startRecording = async () => {
+    const startRec = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorderRef.current = new MediaRecorder(stream);
+            mediaRef.current = new MediaRecorder(stream);
             chunksRef.current = [];
-
-            mediaRecorderRef.current.ondataavailable = (e) => {
-                if (e.data.size > 0) chunksRef.current.push(e.data);
-            };
-
-            mediaRecorderRef.current.onstop = async () => {
+            mediaRef.current.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+            mediaRef.current.onstop = async () => {
                 const blob = new Blob(chunksRef.current, { type: "audio/webm" });
                 setIsProcessing(true);
-
-                // Add a temporary "Processing Audio..." message
                 const tempId = Date.now().toString();
-                setMessages(prev => [...prev, { id: tempId, role: "user", text: "🎙️ የድምፅ መልእክት በመተርጎም ላይ... (Processing Amharic audio...)", isTemporary: true }]);
-
+                setMessages(p => [...p, { id: tempId, role: "user", text: "🎙️ Processing audio...", isTemporary: true, timestamp: Date.now() }]);
                 try {
-                    const result = await processVoice(blob);
-
-                    // Replace temp message with actual transcription
-                    setMessages(prev => prev.map(m => m.id === tempId ? { ...m, text: result.transcription, isTemporary: false } : m));
-
-                    addMessage({
-                        role: "assistant",
-                        text: result.response_text,
-                        audioUrl: result.audio_url,
-                        isEmergency: result.emergency
-                    });
-                } catch (error) {
-                    setMessages(prev => prev.map(m => m.id === tempId ? { ...m, text: "Audio processing failed.", isTemporary: false } : m));
-                } finally {
-                    setIsProcessing(false);
-                }
+                    const r = await processVoice(blob, isChildMode ? "child" : "adult");
+                    setMessages(p => p.map(m => m.id === tempId ? { ...m, text: r.transcription, isTemporary: false } : m));
+                    addMsg({ role: "assistant", text: r.response_text, audioUrl: r.audio_url, isEmergency: r.emergency });
+                    addEntry(r.transcription, r.response_text);
+                } catch { setMessages(p => p.map(m => m.id === tempId ? { ...m, text: "Audio processing failed.", isTemporary: false } : m)); }
+                finally { setIsProcessing(false); }
             };
+            mediaRef.current.start(); setIsRecording(true);
+        } catch (e) { console.error("Mic denied", e); }
+    };
 
-            mediaRecorderRef.current.start();
-            setIsRecording(true);
-        } catch (err) {
-            console.error("Microphone denied", err);
+    const stopRec = () => {
+        if (mediaRef.current && isRecording) {
+            mediaRef.current.stop(); setIsRecording(false);
+            mediaRef.current.stream.getTracks().forEach(t => t.stop());
         }
     };
 
-    const stopRecording = () => {
-        if (mediaRecorderRef.current && isRecording) {
-            mediaRecorderRef.current.stop();
-            setIsRecording(false);
-            mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
-        }
-    };
-
-    const handleVisionResult = (resultText: string) => {
-        if (resultText.startsWith("[System]:")) {
-            addMessage({ role: "user", text: resultText });
-        } else {
-            addMessage({ role: "assistant", text: resultText });
-        }
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleTextSubmit();
-        }
-    };
+    const recentEntry = isClient ? getRecentEntry() : null;
 
     return (
-        <main className="flex flex-col h-screen bg-[#2e1d15] text-[#f7eedf] font-sans selection:bg-amber-600/30 overflow-hidden">
-
-            {/* Background elements - Ethereal Flag Colors & Coffee Tones */}
-            <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none opacity-40">
-                <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-green-600/20 blur-[120px]" />
-                <div className="absolute top-[20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-yellow-500/20 blur-[150px]" />
-                <div className="absolute bottom-[-10%] left-[20%] w-[60%] h-[60%] rounded-full bg-red-600/20 blur-[150px]" />
-            </div>
-
-            {/* Header */}
-            <header className="flex-none p-4 md:px-8 border-b border-[#4d3224] bg-[#22140e]/90 backdrop-blur-md z-10 flex justify-between items-center shadow-md">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500 via-yellow-400 to-red-500 shadow-lg" />
-                    <h1 className="text-xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-amber-500 drop-shadow-sm">
-                        Ethio-HealthBridge
-                    </h1>
+        <AppShell>
+            <div className="flex flex-col h-full">
+                {/* Top bar */}
+                <div className="flex-none flex items-center justify-between px-5 py-3 glass-bright border-b border-[var(--border)]">
+                    <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-[var(--accent-teal)]" />
+                        <span className="text-sm font-semibold text-[var(--text-primary)]">AI Health Chat</span>
+                        {isChildMode && <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">👶 Child Mode</span>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {!isOnline
+                            ? <div className="flex items-center gap-1 text-xs text-orange-400 border border-orange-400/30 px-2 py-1 rounded-full bg-orange-900/20"><WifiOff className="w-3 h-3" /><span className="hidden sm:inline">Offline</span></div>
+                            : <div className="hidden sm:flex items-center gap-1 text-xs text-emerald-400/70 border border-emerald-400/20 px-2 py-1 rounded-full"><Wifi className="w-3 h-3" /></div>
+                        }
+                        <ChildModeToggle isChildMode={isChildMode} onToggle={() => setIsChildMode(p => !p)} />
+                        <FacilityFinder />
+                        <button onClick={() => { setMessages([WELCOME]); localStorage.removeItem("ethio-chat-history"); }} title="Clear chat"
+                            className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10 transition-all">
+                            <Trash2 className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
-                <div className="text-[10px] md:text-xs uppercase tracking-widest text-[#d4bca4] font-semibold border border-[#d4bca4]/30 px-3 py-1 rounded-full bg-[#3e2723]/50">
-                    ምርጥ የጤና ረዳት
-                </div>
-            </header>
 
-            {/* Chat History Area */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 scroll-smooth z-10 w-full mb-2">
-                <div className="max-w-3xl mx-auto space-y-6 flex flex-col">
-                    {messages.map((msg) => (
-                        <div key={msg.id} className={`flex flex-col max-w-[85%] ${msg.role === "user" ? "self-end items-end" : "self-start items-start"}`}>
-                            {/* Emergency Badge */}
-                            {msg.isEmergency && (
-                                <div className="mb-3 flex flex-col gap-2">
-                                    <div className="inline-flex items-center gap-2 bg-red-700/80 border border-red-500 text-white px-3 py-2 rounded-full text-sm font-bold shadow-lg shadow-red-900/50 w-fit animate-pulse">
-                                        <AlertTriangle className="w-5 h-5" />
-                                        ድንገተኛ (RED FLAG DETECTED)
-                                    </div>
-                                    <EmergencyTransportButton />
+                {isClient && recentEntry && showFollowUp && (
+                    <FollowUpBanner entry={recentEntry}
+                        onFollowUp={t => { setShowFollowUp(false); submit(undefined, t); }}
+                        onDismiss={() => setShowFollowUp(false)} />
+                )}
+
+                {/* Messages */}
+                <div className="flex-1 overflow-y-auto px-4 py-5">
+                    <div className="max-w-3xl mx-auto flex flex-col gap-4">
+                        {messages.map(msg => (
+                            <div key={msg.id} className={`flex flex-col max-w-[82%] slide-up ${msg.role === "user" ? "self-end items-end" : "self-start items-start"}`}>
+                                <span className="text-[10px] text-[var(--text-muted)] mb-1 px-1">
+                                    {msg.role === "user" ? "You" : "Ethio-HealthBridge AI"}
+                                    {msg.timestamp && ` · ${new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
+                                </span>
+                                <div className={`rounded-2xl px-4 py-3 shadow-lg flex flex-col gap-2 max-w-full
+                  ${msg.role === "user"
+                                        ? "bg-gradient-to-br from-teal-600/25 to-emerald-700/15 border border-teal-500/25 rounded-br-sm"
+                                        : "glass border-l-2 border-l-[var(--accent-teal)] rounded-bl-sm"
+                                    } ${msg.isTemporary ? "animate-pulse opacity-60 italic" : ""}`}>
+                                    <p className="text-sm leading-relaxed whitespace-pre-wrap break-words text-[var(--text-primary)]">
+                                        {msg.role === "assistant" && newIds.has(msg.id) && !msg.isTemporary
+                                            ? <TypingText text={msg.text} />
+                                            : msg.text}
+                                    </p>
+                                    {msg.audioUrl && <AudioPlayer audioUrl={msg.audioUrl} autoPlay={newIds.has(msg.id)} />}
+                                    {msg.isEmergency && <EmergencyCard />}
                                 </div>
-                            )}
-
-                            {/* Bubble */}
-                            <div className={`px-5 py-4 rounded-3xl shadow-md flex flex-col gap-3 max-w-full ${msg.role === "user"
-                                ? "bg-gradient-to-br from-[#10562e] to-[#0a351c] text-[#e8f5e9] border border-[#1b7b43] rounded-br-none"
-                                : "bg-[#3e2723] text-[#f7eedf] border border-[#5d4037] rounded-bl-none border-l-4 border-l-yellow-500 w-fit"
-                                } ${msg.isTemporary ? "animate-pulse italic opacity-80" : ""}`}>
-                                <p className="text-[16px] md:text-lg leading-relaxed whitespace-pre-wrap font-serif tracking-wide break-words">{msg.text}</p>
-
-                                {/* Audio Player Attachment (if any) */}
-                                {msg.audioUrl && (
-                                    <div className="w-full mt-1 shrink-0">
-                                        <AudioPlayer audioUrl={msg.audioUrl} autoPlay={true} />
-                                    </div>
-                                )}
                             </div>
-                        </div>
-                    ))}
+                        ))}
 
-                    {/* Processing Indicator */}
-                    {isProcessing && !messages.some(m => m.isTemporary) && (
-                        <div className="self-start max-w-[85%] px-5 py-4 bg-[#3e2723] border border-[#5d4037] border-l-4 border-l-yellow-500 rounded-3xl rounded-bl-none opacity-90 shadow-md flex items-center gap-4">
-                            <span className="text-[#f7eedf] text-[15px] animate-pulse italic font-serif">
-                                AI እያሰበ ነው... (AI is thinking...)
-                            </span>
-                            <div className="flex gap-1.5 items-end h-5">
-                                <div className="w-1.5 bg-green-500 rounded-full animate-[bounce_1s_infinite_0ms]" style={{ height: '60%' }} />
-                                <div className="w-1.5 bg-yellow-400 rounded-full animate-[bounce_1s_infinite_150ms]" style={{ height: '100%' }} />
-                                <div className="w-1.5 bg-red-500 rounded-full animate-[bounce_1s_infinite_300ms]" style={{ height: '80%' }} />
+                        {isProcessing && !messages.some(m => m.isTemporary) && (
+                            <div className="self-start glass border-l-2 border-l-[var(--accent-teal)] rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-3 slide-up">
+                                {[0, 150, 300].map(d => (
+                                    <div key={d} className="w-1.5 h-1.5 rounded-full bg-[var(--accent-teal)] animate-bounce" style={{ animationDelay: `${d}ms` }} />
+                                ))}
+                                <span className="text-xs text-[var(--text-secondary)] italic">AI is thinking...</span>
                             </div>
-                        </div>
-                    )}
-
-                    <div ref={messagesEndRef} className="h-4" />
+                        )}
+                        <div ref={endRef} className="h-2" />
+                    </div>
                 </div>
-            </div>
 
-            {/* Input Composer Area */}
-            <div className="flex-none p-4 pb-8 md:p-6 bg-gradient-to-t from-[#1b0f0b] via-[#22140e] to-[#2e1d15]/50 w-full z-20 border-t border-[#4d3224]/30">
-                <div className="max-w-3xl mx-auto relative">
-                    <form onSubmit={handleTextSubmit} className="flex relative bg-[#3e2723] border border-[#5d4037] rounded-[2rem] shadow-2xl focus-within:border-yellow-500 focus-within:ring-2 focus-within:ring-yellow-500/20 transition-all p-1.5">
-                        <div className="flex items-end pl-2 pb-1.5">
-                            <CameraUI onAnalysisResult={handleVisionResult} />
-                        </div>
-
-                        <textarea
-                            value={inputText}
-                            onChange={(e) => setInputText(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            placeholder="የህክምና ጥያቄዎን እዚህ ያስገቡ... (Type here)"
-                            className="flex-1 bg-transparent border-none focus:outline-none resize-none px-4 py-4 max-h-[150px] min-h-[56px] text-[#f7eedf] placeholder:text-[#a1887f] font-serif"
-                            rows={1}
-                        />
-
-                        <div className="flex items-end pr-1.5 pb-1.5 gap-2">
-                            {inputText.trim() ? (
-                                <button
-                                    type="submit"
-                                    disabled={isProcessing}
-                                    className="p-3 bg-gradient-to-b from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white rounded-full transition-colors disabled:opacity-50 flex items-center justify-center h-[44px] w-[44px] shadow-md border border-green-500"
-                                >
-                                    <SendHorizontal className="w-5 h-5 absolute" style={{ marginLeft: '-2px' }} />
-                                </button>
-                            ) : (
-                                <MicButton
-                                    isRecording={isRecording}
-                                    startOp={startRecording}
-                                    stopOp={stopRecording}
-                                />
-                            )}
-                        </div>
-                    </form>
-                    <div className="flex flex-col items-center justify-center gap-2 mt-3">
-                        <div className="flex items-center justify-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                            <span className="w-2 h-2 rounded-full bg-yellow-400"></span>
-                            <span className="w-2 h-2 rounded-full bg-red-500"></span>
-                            <p className="text-xs text-[#a1887f] font-medium border-x border-[#5d4037] px-2 mx-1 tracking-wide">
-                                የኢትዮጵያ ጤና ሚኒስቴር መረጃ አጠቃቀም (MoH Protocols)
-                            </p>
-                            <span className="w-2 h-2 rounded-full bg-red-500"></span>
-                            <span className="w-2 h-2 rounded-full bg-yellow-400"></span>
-                            <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                        </div>
-                        <p className="text-[10px] text-[#8d6e63] font-light text-center max-w-lg mb-1">
-                            ማሳሰቢያ፡ ይህ መተግበሪያ ለሙከራ ብቻ የተሰራ ነው። ለትክክለኛ የህክምና ክትትል እባክዎ በአቅራቢያዎ ወደሚገኝ ጤና ተቋም ይሂዱ።<br />
-                            <span className="opacity-70">(Disclaimer: This app is a prototype. For real medical conditions, please visit a clinic/call 912.)</span>
+                {/* Input */}
+                <div className="flex-none px-4 pb-5 pt-3 glass-bright border-t border-[var(--border)]">
+                    <div className="max-w-3xl mx-auto">
+                        <form onSubmit={submit}
+                            className="flex items-end gap-2 glass border border-[var(--border)] rounded-2xl p-2 focus-within:border-teal-500/50 focus-within:shadow-[0_0_20px_rgba(0,212,170,0.08)] transition-all">
+                            <CameraUI onAnalysisResult={t => t.startsWith("[System]:") ? addMsg({ role: "user", text: t }) : addMsg({ role: "assistant", text: t })} />
+                            <textarea value={inputText} onChange={e => setInputText(e.target.value)}
+                                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } }}
+                                placeholder="ጥያቄዎን ያስገቡ... / Gaaffii galchaa... / ሕቶ ኣእቱ..."
+                                className="flex-1 bg-transparent border-none focus:outline-none resize-none text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] py-2 px-2 max-h-32 min-h-[40px]"
+                                rows={1} />
+                            <div className="flex items-center gap-1.5 pb-0.5">
+                                {inputText.trim()
+                                    ? <button type="submit" disabled={isProcessing}
+                                        className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center hover:scale-105 transition-transform disabled:opacity-50 shadow-md shadow-teal-500/30">
+                                        <SendHorizontal className="w-4 h-4 text-white" />
+                                    </button>
+                                    : <MicButton isRecording={isRecording} startOp={startRec} stopOp={stopRec} />
+                                }
+                            </div>
+                        </form>
+                        <p className="text-center text-[10px] text-[var(--text-muted)] mt-2">
+                            Grounded in Ethiopian MoH Clinical Guidelines · Emergency: 912
                         </p>
                     </div>
                 </div>
             </div>
-        </main>
+        </AppShell>
     );
 }

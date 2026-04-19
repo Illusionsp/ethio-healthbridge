@@ -1,79 +1,89 @@
 "use client";
-
 import { useEffect, useRef, useState } from "react";
-import { Play, Pause, Volume2 } from "lucide-react";
+import { Play, Pause, Volume2, VolumeX } from "lucide-react";
 
-export default function AudioPlayer({ audioUrl, autoPlay = false }: { audioUrl: string | null, autoPlay?: boolean }) {
+export default function AudioPlayer({ audioUrl, autoPlay = false }: { audioUrl: string | null; autoPlay?: boolean }) {
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const [duration, setDuration] = useState(0);
+    const [muted, setMuted] = useState(false);
 
     useEffect(() => {
-        if (audioUrl) {
-            // 1. Resolve the base URL
-            const baseUrl = audioUrl.startsWith('http') ? audioUrl : `http://localhost:8000${audioUrl}`;
-            
-            // 2. THE FIX: Add a unique timestamp so the browser NEVER plays a cached file
-            const urlPath = `${baseUrl}?t=${Date.now()}`;
-            
-            audioRef.current = new Audio(urlPath);
+        if (!audioUrl) return;
+        const base = audioUrl.startsWith("http") ? audioUrl : `http://localhost:8000${audioUrl}`;
+        const src = `${base}?t=${Date.now()}`;
+        const audio = new Audio(src);
+        audioRef.current = audio;
 
-            audioRef.current.onended = () => {
-                setIsPlaying(false);
-                if (audioRef.current) audioRef.current.currentTime = 0; // Reset so it can be played again
-            };
+        audio.onloadedmetadata = () => setDuration(audio.duration);
+        audio.ontimeupdate = () => setProgress(audio.currentTime / (audio.duration || 1));
+        audio.onended = () => { setIsPlaying(false); setProgress(0); };
 
-            if (autoPlay) {
-                // 3. THE FIX: Only set isPlaying to true if the browser allows playback
-                audioRef.current.play()
-                    .then(() => setIsPlaying(true))
-                    .catch(e => {
-                        console.warn("Auto-playback blocked by browser:", e);
-                        setIsPlaying(false);
-                    });
-            }
+        if (autoPlay) {
+            audio.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
         }
-
-        // Cleanup function to stop memory leaks
-        return () => {
-            if (audioRef.current) {
-                audioRef.current.pause();
-                audioRef.current.src = "";
-                audioRef.current = null;
-            }
-        };
+        return () => { audio.pause(); audio.src = ""; audioRef.current = null; };
     }, [audioUrl, autoPlay]);
 
-    const togglePlay = () => {
+    const toggle = () => {
         if (!audioRef.current) return;
-        if (isPlaying) {
-            audioRef.current.pause();
-        } else {
-            // If it reached the end, start from zero
-            if (audioRef.current.currentTime === audioRef.current.duration) {
-                audioRef.current.currentTime = 0;
-            }
-            audioRef.current.play();
-        }
-        setIsPlaying(!isPlaying);
+        if (isPlaying) { audioRef.current.pause(); setIsPlaying(false); }
+        else { audioRef.current.play(); setIsPlaying(true); }
     };
+
+    const seek = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!audioRef.current) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        const ratio = (e.clientX - rect.left) / rect.width;
+        audioRef.current.currentTime = ratio * audioRef.current.duration;
+    };
+
+    const toggleMute = () => {
+        if (!audioRef.current) return;
+        audioRef.current.muted = !muted;
+        setMuted(p => !p);
+    };
+
+    const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
     if (!audioUrl) return null;
 
     return (
-        <div className="mt-2 flex items-center gap-3 bg-[#5d4037]/40 border border-[#8d6e63]/30 p-2 rounded-xl backdrop-blur-md w-full max-w-[250px] inline-flex shadow-inner">
-            <button
-                onClick={togglePlay}
-                className="w-8 h-8 flex items-center justify-center bg-gradient-to-b from-yellow-500 to-yellow-600 text-[#3e2723] rounded-full hover:from-yellow-400 hover:to-yellow-500 transition-colors shadow-sm"
-                title="Play Audio"
-            >
-                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+        <div className="flex items-center gap-3 bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl px-3 py-2.5 w-full max-w-xs">
+            <button onClick={toggle}
+                className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center shrink-0 hover:scale-105 transition-transform shadow-md shadow-teal-500/30">
+                {isPlaying ? <Pause className="w-3.5 h-3.5 text-white" /> : <Play className="w-3.5 h-3.5 text-white ml-0.5" />}
             </button>
-            <div className="flex-1">
-                <div className="h-1.5 w-full bg-[#3e2723] rounded-full overflow-hidden border border-[#2e1d15]/50">
-                    <div className={`h-full bg-gradient-to-r from-green-500 via-yellow-400 to-red-500 transition-all duration-300 ${isPlaying ? 'w-full origin-left animate-pulse' : 'w-0'}`}></div>
+
+            {/* Waveform bars when playing, progress bar when paused */}
+            <div className="flex-1 flex flex-col gap-1">
+                {isPlaying ? (
+                    <div className="flex items-center gap-0.5 h-6">
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
+                            <div key={i} className="w-1 rounded-full bg-gradient-to-t from-teal-500 to-emerald-400"
+                                style={{
+                                    height: `${Math.random() * 16 + 4}px`,
+                                    animation: `wave-${(i % 5) + 1} ${0.6 + (i % 4) * 0.15}s ease-in-out infinite`,
+                                    animationDelay: `${i * 0.05}s`
+                                }} />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="h-1.5 bg-[var(--border)] rounded-full cursor-pointer overflow-hidden" onClick={seek}>
+                        <div className="h-full bg-gradient-to-r from-teal-500 to-emerald-400 rounded-full transition-all"
+                            style={{ width: `${progress * 100}%` }} />
+                    </div>
+                )}
+                <div className="flex justify-between text-[10px] text-[var(--text-muted)]">
+                    <span>{fmt(progress * duration)}</span>
+                    <span>{fmt(duration)}</span>
                 </div>
             </div>
-            <Volume2 className="w-4 h-4 text-[#d4bca4] mr-2" />
+
+            <button onClick={toggleMute} className="text-[var(--text-muted)] hover:text-[var(--accent-teal)] transition-colors">
+                {muted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+            </button>
         </div>
     );
 }

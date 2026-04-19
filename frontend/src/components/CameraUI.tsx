@@ -12,11 +12,13 @@ export default function CameraUI({ onAnalysisResult }: { onAnalysisResult: (text
         const file = e.target.files?.[0];
         if (!file) return;
 
+        // Reset input so the same file can be re-selected
+        e.target.value = "";
+
         setIsAnalyzing(true);
         const formData = new FormData();
         formData.append("image", file);
 
-        // Notify parent that we started analyzing an image
         onAnalysisResult(`[System]: Uploading image ${file.name}...`);
 
         try {
@@ -24,8 +26,8 @@ export default function CameraUI({ onAnalysisResult }: { onAnalysisResult: (text
                 headers: { "Content-Type": "multipart/form-data" }
             });
             onAnalysisResult(res.data.analysis);
-        } catch (error) {
-            onAnalysisResult("ይቅርታ፣ ችግር ተፈጥሯል። (Sorry, an error occurred analyzing the image.)");
+        } catch {
+            onAnalysisResult("ይቅርታ፣ ምስሉን መተንተን አልተቻለም። (Sorry, an error occurred analyzing the image.)");
         } finally {
             setIsAnalyzing(false);
         }
@@ -45,8 +47,8 @@ export default function CameraUI({ onAnalysisResult }: { onAnalysisResult: (text
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isAnalyzing}
                 className={`flex items-center justify-center p-3 rounded-full transition-all duration-300 ${isAnalyzing
-                        ? 'text-[#a1887f] bg-[#5d4037]/50 cursor-not-allowed border border-[#5d4037]'
-                        : 'text-[#d4bca4] bg-[#5d4037] hover:text-amber-200 hover:bg-[#6d4c41] border border-[#d4bca4]/30'
+                    ? 'text-[#a1887f] bg-[#5d4037]/50 cursor-not-allowed border border-[#5d4037]'
+                    : 'text-[#d4bca4] bg-[#5d4037] hover:text-amber-200 hover:bg-[#6d4c41] border border-[#d4bca4]/30'
                     }`}
                 title="የመድሃኒት ምስል ያስገቡ (Scan Medicine)"
             >

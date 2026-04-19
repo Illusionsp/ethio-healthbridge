@@ -1,11 +1,13 @@
 import os
 import re
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 
-# Ensure environment variables are loaded
 load_dotenv()
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+
+_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+MODEL = "gemini-1.5-flash"
+
 
 def clean_for_ai(text: str) -> str:
     """Standardizes Amharic characters for consistent database searching."""
@@ -16,53 +18,48 @@ def clean_for_ai(text: str) -> str:
     text = re.sub(r'[።፡፣፤፥፦፧፨፠]', ' ', text)
     return " ".join(text.split())
 
+
 def transcribe_amharic(audio_path: str) -> str:
+    """
+    Transcribes audio in Amharic, Afaan Oromoo, or Tigrinya using Gemini.
+    """
     if not os.path.exists(audio_path):
-        print(f"❌ Error: Audio file not found at {audio_path}")
-        # 1. NEW: Speak to the user if the mic failed
-        return "ይቅርታ፣ የድምፅ ፋይል አልተገኘም።" # "Sorry, the audio file was not found."
+        print(f"Error: Audio file not found at {audio_path}")
+        return "ይቅርታ፣ የድምፅ ፋይል አልተገኘም።"
 
-    print("☁️ Sending audio to Gemini Cloud for Amharic Transcription...")
-    
+    print("Sending audio to Gemini for transcription...")
+
     try:
-        # 1. Upload the audio file to Google's temporary memory
-        audio_file = genai.upload_file(path=audio_path)
-        
-        # 2. Initialize the Multimodal AI
-        model = genai.GenerativeModel('gemini-2.5-flash-lite')
-        
-        # 3. Strict Prompting to prevent it from translating or adding conversational text
-        prompt = (
-            "You are an expert Amharic linguist. Listen to this audio and accurately "
-            "transcribe exactly what is spoken in Amharic. "
-            "Return ONLY the Amharic text, without any English words, translations, or introductory text."
-        )
-        
-        # 4. Process the audio and text together
-        response = model.generate_content([prompt, audio_file])
-        
-        # 5. Clean up the file from Google's servers to save your quota space
-        genai.delete_file(audio_file.name)
-        
-        raw_text = response.text.strip()
-        print(f"🗣️ Gemini Raw Output: '{raw_text}'")
-        
-        # Safety check if the audio was silent
-        if not raw_text:
-            print("⚠️ Gemini heard nothing.")
-            # 2. NEW: Speak to the user if the audio was completely silent
-            return "ይቅርታ፣ ድምፅዎ አልተሰማም። እባክዎ በድጋሚ ይሞክሩ።" # "Sorry, your voice was not heard. Please try again."
-            
-        cleaned_text = clean_for_ai(raw_text)
-        print(f"✨ Cleaned Text for RAG: '{cleaned_text}'")
-        
-        return cleaned_text
-        
-    except Exception as e:
-        print(f"❌ Cloud Transcription Error: {e}")
-        # 3. NEW: Speak to the user if the cloud API fails (e.g., quota limit)
-        return "ይቅርታ፣ አሁን ላይ ድምፅዎን መስማት አልቻልኩም። እባክዎ ትንሽ ቆይተው ይሞክሩ።" # "Sorry, I couldn't hear your voice right now. Please try a bit later."
+        # Upload file using new SDK
+        uploaded = _client.files.upload(file=audio_path)
 
-if __name__ == "__main__":
-    # Test the cloud engine
-    print(transcribe_amharic("backend/data/audio_outputs/test_input.wav"))
+        prompt = (
+            "You are an expert linguist for Ethiopian languages. "
+            "Listen to this audio and accurately transcribe exactly what is spoken. "
+            "The speaker may be using Amharic, Afaan Oromoo, or Tigrinya. "
+            "Return ONLY the transcribed text in the original language spoken, "
+            "without any English words, translations, or introductory text. "
+            "Medical terms like 'mitch', 'wugat', 'qurxummii', or 'hargansa' should be preserved as-is."
+        )
+
+        response = _client.models.generate_content(
+            model=MODEL,
+            contents=[prompt, uploaded]
+        )
+
+        # Clean up uploaded file
+        _client.files.delete(name=uploaded.name)
+
+        raw_text = response.text.strip() if response.text else ""
+        print(f"Gemini Raw Output: '{raw_text}'")
+
+        if not raw_text:
+            return "ይቅርታ፣ ድምፅዎ አልተሰማም። እባክዎ በድጋሚ ይሞክሩ።"
+
+        cleaned = clean_for_ai(raw_text)
+        print(f"Cleaned Text for RAG: '{cleaned}'")
+        return cleaned
+
+    except Exception as e:
+        print(f"Cloud Transcription Error: {e}")
+        return "ይቅርታ፣ አሁን ላይ ድምፅዎን መስማት አልቻልኩም። እባክዎ ትንሽ ቆይተው ይሞክሩ።"
