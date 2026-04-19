@@ -63,11 +63,28 @@ red-flag symptom is detected, or manually by tapping *ሐኪም ያማክሩ*
   - **On demand** at any point in the conversation when the patient taps
     *ሐኪም ያማክሩ* ("Consult a doctor") — even for routine, non-emergency
     questions — so any on-call clinician in the group can take over.
-- **Outbreak Hotspot Tracking.** Reported symptoms are aggregated per Addis
-  Ababa sub-city and surfaced via an admin dashboard; crossing a threshold
-  raises an outbreak alert.
-- **Per-User Conversation Memory.** Each `user_id` gets its own chat history
-  buffer so follow-up questions stay in context.
+- **Outbreak Hotspot Tracking.** Every voice/text request can carry a
+  `sub_city` string (Addis Ababa sub-cities are seeded by default, but any
+  string works). Symptoms recognised by the Amharic→medical dictionary in
+  `utils/mapping.py` (e.g. ራስ ምታት → headache, ትኩሳት → fever) are tallied per
+  sub-city in an in-memory registry. When any single
+  `(sub_city, symptom)` pair reaches **`OUTBREAK_THRESHOLD = 5`** reports,
+  an Amharic outbreak warning is logged and returned alongside the chat
+  reply. The `/admin` dashboard polls `GET /api/hotspots` every 10 s and
+  colour-codes each tile (green / yellow / red) so MoH staff can spot
+  emerging clusters at a glance. *Note: counts live in process memory and
+  reset whenever the backend restarts — swap in Redis or a database before
+  relying on this in production.*
+- **Per-User Conversation Memory.** The RAG engine wires each request into a
+  LlamaIndex `ChatMemoryBuffer` (3,000-token sliding window) keyed by the
+  caller's `user_id`. The buffers are persisted to
+  `backend/data/storage/chat_store.json` via `SimpleChatStore`, so
+  follow-up questions (e.g. "what medicine should I take?" after an earlier
+  malaria triage) inherit the prior diagnosis, symptoms, and citations
+  without the patient having to repeat themselves. Anonymous patients fall
+  back to the shared `user_id="guest_user"` bucket, so make sure the
+  frontend mints a stable per-device ID if you need true privacy between
+  users.
 
 ## Architecture
 
