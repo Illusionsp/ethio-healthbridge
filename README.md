@@ -9,7 +9,9 @@ responds in natural Amharic speech. Its answers are grounded in official
 generation (RAG) pipeline. Patients can also escalate any conversation to a
 hospital doctors' Telegram group on demand — either automatically when a
 red-flag symptom is detected, or manually by tapping *ሐኪም ያማክሩ*
-("Consult a doctor").
+("Consult a doctor"). Reported symptoms are also aggregated per Addis Ababa
+sub-city and surfaced on an MoH admin dashboard for outbreak hotspot
+tracking.
 
 > ⚠️ **Medical disclaimer.** This project is a research/hackathon prototype. It
 > is **not** a substitute for professional medical advice, diagnosis, or
