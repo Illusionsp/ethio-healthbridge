@@ -1,7 +1,7 @@
-# 🏗️ Ethio-HealthBridge
+# 🏗️ ጤናለአዳም (Tena LeAdam)
 **Multimodal AI Healthcare Assistant for the Ethiopian Context**
 
-Ethio-HealthBridge is an AI-powered system designed to provide grounded medical guidance using the **Ethiopian Ministry of Health (MoH)** protocols. It supports Amharic voice, text, and image inputs to ensure accessibility for all.
+ጤናለአዳም (Tena LeAdam) is an AI-powered system designed to provide grounded medical guidance using the **Ethiopian Ministry of Health (MoH)** protocols. It supports Amharic voice, text, and image inputs to ensure accessibility for all.
 
 ## 🚀 Key Features
 * **Amharic Voice-to-Voice:** Speak in Amharic and hear the AI respond in a natural neural voice.
@@ -20,7 +20,7 @@ Ethio-HealthBridge is an AI-powered system designed to provide grounded medical 
 ## 📂 Project Architecture
 
 ```text
-ethio-healthbridge/
+tena-leadam/
 ├── backend/                        # Python / FastAPI Root
 │   ├── main.py                     # System Orchestrator & API Logic
 │   ├── core/                       # The "Engines" of the AI
