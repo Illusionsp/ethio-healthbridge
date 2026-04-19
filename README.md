@@ -7,7 +7,7 @@ medical-guidance system that accepts **Amharic voice, text, and images** and
 responds in natural Amharic speech. Its answers are grounded in official
 **Ethiopian Ministry of Health (MoH) clinical guidelines** via a retrieval-augmented
 generation (RAG) pipeline, and it includes an automatic red-flag emergency
-detector that can dispatch a clinical alert to an on-call doctor over Telegram.
+detector that dispatches a clinical alert to a hospital doctors' Telegram group.
 
 > ⚠️ **Medical disclaimer.** This project is a research/hackathon prototype. It
 > is **not** a substitute for professional medical advice, diagnosis, or
@@ -31,6 +31,7 @@ detector that can dispatch a clinical alert to an on-call doctor over Telegram.
   - [5. Run the backend](#5-run-the-backend)
   - [6. Run the frontend](#6-run-the-frontend)
 - [Environment Variables](#environment-variables)
+- [Setting Up the Doctors' Telegram Group](#setting-up-the-doctors-telegram-group)
 - [API Reference](#api-reference)
 - [Scripts and Utilities](#scripts-and-utilities)
 - [Troubleshooting](#troubleshooting)
@@ -53,7 +54,8 @@ detector that can dispatch a clinical alert to an on-call doctor over Telegram.
   life-threatening symptoms (chest pain, severe bleeding, unconsciousness,
   etc.) and returns an immediate 912 prompt, bypassing the LLM path.
 - **Doctor Escalation.** When a red flag fires (or the user taps *ሐኪም ያማክሩ*),
-  a structured clinical summary is pushed to an on-call doctor over Telegram.
+  a structured clinical summary is pushed to a Telegram group of hospital
+  doctors so the on-call clinician can pick it up immediately.
 - **Outbreak Hotspot Tracking.** Reported symptoms are aggregated per Addis
   Ababa sub-city and surfaced via an admin dashboard; crossing a threshold
   raises an outbreak alert.
@@ -100,7 +102,8 @@ detector that can dispatch a clinical alert to an on-call doctor over Telegram.
    which are logged to the in-memory hotspot registry and checked against the
    red-flag list in `utils/emergency.py`.
 4. If a red flag fires, an emergency response is returned immediately and a
-   structured alert is pushed to Telegram. Otherwise, the query is enriched
+   structured alert is pushed to the hospital doctors' Telegram group.
+   Otherwise, the query is enriched
    with extracted symptoms and sent to the RAG engine (`core/rag_engine.py`),
    which retrieves from ChromaDB and answers via Gemini under an
    Amharic-only doctor persona.
@@ -178,9 +181,11 @@ ethio-healthbridge/
   [Google AI Studio](https://aistudio.google.com/app/apikey). The free tier is
   enough to run the app end-to-end; ingestion of large PDFs may require waiting
   on rate limits (the ingest script handles this automatically).
-- **(Optional) Telegram bot** for doctor alerts. Create a bot with
-  [@BotFather](https://t.me/BotFather) and get the chat ID of the target
-  doctor/channel.
+- **(Optional) Telegram bot + doctors' group** for clinical alerts. Create a
+  bot with [@BotFather](https://t.me/BotFather), then add it to the Telegram
+  group that your hospital doctors share. The numeric chat ID of that group
+  is what `TELEGRAM_DOCTOR_CHAT_ID` should hold (group IDs start with `-100…`).
+  See [Setting Up the Doctors' Telegram Group](#setting-up-the-doctors-telegram-group).
 - **(Optional) MoH guideline PDFs** placed under `backend/data/guidelines/`.
   Without PDFs the RAG store is empty and the backend falls back to a plain
   LLM response.
@@ -204,7 +209,9 @@ GEMINI_API_KEY=your_gemini_api_key
 # LlamaIndex's Gemini integration also reads GOOGLE_API_KEY
 GOOGLE_API_KEY=your_gemini_api_key
 
-# Optional: Telegram doctor-alert bot
+# Optional: Telegram doctor-alert bot.
+# TELEGRAM_DOCTOR_CHAT_ID is the numeric chat ID of the hospital doctors'
+# Telegram group that the bot has been added to (group IDs start with -100…).
 TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
 TELEGRAM_DOCTOR_CHAT_ID=-1001234567890
 ```
@@ -278,9 +285,49 @@ Available frontend scripts:
 | `GEMINI_API_KEY`          | ✅ | `core/stt_engine.py`, `core/vision_eval.py` | Google AI Studio API key for audio and vision calls. |
 | `GOOGLE_API_KEY`          | ✅ | `core/rag_engine.py`, `scripts/ingest.py` | Same key, under the name LlamaIndex's Gemini integration looks for. In practice, set both variables to the same value. |
 | `TELEGRAM_BOT_TOKEN`      | ⛔ optional | `utils/telegram_bot.py` | Bot token from [@BotFather](https://t.me/BotFather). When missing, doctor alerts are disabled silently. |
-| `TELEGRAM_DOCTOR_CHAT_ID` | ⛔ optional | `utils/telegram_bot.py` | Chat ID to receive alerts. `TELEGRAM_CHAT_ID` is accepted as an alias. |
+| `TELEGRAM_DOCTOR_CHAT_ID` | ⛔ optional | `utils/telegram_bot.py` | Numeric chat ID of the hospital doctors' Telegram group the bot has been added to. Group IDs start with `-100…`. `TELEGRAM_CHAT_ID` is accepted as an alias. |
 
 `backend/.env` is git-ignored. Never commit real keys.
+
+## Setting Up the Doctors' Telegram Group
+
+Clinical alerts (red-flag emergencies and explicit *ሐኪም ያማክሩ* /
+"Consult a doctor" taps) are pushed into a **Telegram group that you create
+for the hospital's on-call doctors**, not into a single private chat. This
+way any doctor in the rota can pick the alert up.
+
+One-time setup:
+
+1. **Create the bot.** Open [@BotFather](https://t.me/BotFather), run
+   `/newbot`, give it a name (e.g. `Tena LeAdam Triage`) and a username
+   (e.g. `tena_leadam_triage_bot`). BotFather replies with a token of the
+   form `123456789:ABCdefGhIJK...` — this is your `TELEGRAM_BOT_TOKEN`.
+2. **Disable group privacy** so the bot can read group messages it needs to
+   acknowledge (optional but recommended). In BotFather: `/mybots` → select
+   the bot → *Bot Settings* → *Group Privacy* → *Turn off*.
+3. **Create the doctors' group** in Telegram and add every on-call doctor
+   who should receive alerts.
+4. **Add the bot to the group** (group settings → *Add members* → search by
+   the bot's username).
+5. **Get the group's chat ID.** The easiest way:
+   - Send any message in the group.
+   - Open `https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/getUpdates` in a
+     browser.
+   - Look for `"chat":{"id":-1001234567890,...}` in the response. That
+     negative number (group IDs always start with `-100…`) is your
+     `TELEGRAM_DOCTOR_CHAT_ID`.
+6. **Set both values** in `backend/.env`:
+   ```dotenv
+   TELEGRAM_BOT_TOKEN=123456789:ABCdefGhIJK...
+   TELEGRAM_DOCTOR_CHAT_ID=-1001234567890
+   ```
+7. **Restart the backend** and trigger a test alert by hitting
+   `POST /api/hakim-yamakru` (the *ሐኪም ያማክሩ* button in the UI does this)
+   with any patient summary. You should see a formatted *CLINICAL TRIAGE
+   ALERT* message land in the doctors' group.
+
+If either variable is missing, `utils/telegram_bot.py` logs a warning and
+the rest of the system continues to work — alerts simply aren't dispatched.
 
 ## API Reference
 
@@ -351,9 +398,12 @@ python -m scripts.verify_features
   Microsoft's TTS endpoints. If it fails, the backend falls back to `gTTS`
   automatically — check the backend console logs for `⚠️ edge-tts failed`.
 - **Telegram alerts not firing.** Confirm both `TELEGRAM_BOT_TOKEN` and
-  `TELEGRAM_DOCTOR_CHAT_ID` are set and that the bot has been started in the
-  target chat. Without these variables, the dispatcher logs a warning and
-  returns `False` instead of raising.
+  `TELEGRAM_DOCTOR_CHAT_ID` are set, that the bot has been *added to the
+  hospital doctors' Telegram group* (not just started in a private chat),
+  and that `TELEGRAM_DOCTOR_CHAT_ID` is the numeric ID of that group. Without
+  these variables, the dispatcher logs a warning and returns `False` instead
+  of raising. See [Setting Up the Doctors' Telegram Group](#setting-up-the-doctors-telegram-group)
+  for the full setup walkthrough.
 - **CORS errors from the frontend.** The backend ships with `allow_origins=["*"]`
   for development. In production, restrict it to your deployed frontend origin.
 

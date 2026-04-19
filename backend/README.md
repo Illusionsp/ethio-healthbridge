@@ -3,7 +3,8 @@
 This directory contains the Python/FastAPI service that powers ጤናለአዳም
 (Tena LeAdam). It orchestrates Amharic speech-to-text, retrieval-augmented
 medical reasoning against Ethiopian MoH guidelines, medicine-label vision
-analysis, Amharic text-to-speech, and Telegram doctor alerts.
+analysis, Amharic text-to-speech, and Telegram alerts to a hospital doctors'
+group chat.
 
 See the [root README](../README.md) for the full project overview. This file
 focuses on running and developing the backend in isolation.
@@ -86,7 +87,7 @@ five minutes.
 | POST   | `/api/voice-chat`       | Multipart audio → Amharic transcription + Amharic audio reply. |
 | POST   | `/api/text-chat`        | JSON text → Amharic audio reply. |
 | POST   | `/api/vision-analyze`   | Multipart image → Amharic medicine-label analysis. |
-| POST   | `/api/hakim-yamakru`    | Push a patient summary to the on-call doctor via Telegram. |
+| POST   | `/api/hakim-yamakru`    | Push a patient summary to the hospital doctors' Telegram group. |
 | GET    | `/api/hotspots`         | Current sub-city symptom hotspot registry. |
 | GET    | `/api/audio/{filename}` | Stream a generated TTS MP3. |
 | GET    | `/pdfs/{filename}`      | Static mount for the raw MoH PDFs used as citations. |
@@ -101,7 +102,10 @@ request/response details.
 | `GEMINI_API_KEY`          | ✅ | Google AI Studio key, used by `core/stt_engine.py` and `core/vision_eval.py`. |
 | `GOOGLE_API_KEY`          | ✅ | Same key, under the name LlamaIndex's Gemini integration expects. Set both to the same value. |
 | `TELEGRAM_BOT_TOKEN`      | ⛔ optional | Bot token for the doctor-alert dispatcher. |
-| `TELEGRAM_DOCTOR_CHAT_ID` | ⛔ optional | Target Telegram chat ID. `TELEGRAM_CHAT_ID` is accepted as an alias. |
+| `TELEGRAM_DOCTOR_CHAT_ID` | ⛔ optional | Numeric chat ID of the hospital doctors' Telegram group the bot has been added to (group IDs start with `-100…`). `TELEGRAM_CHAT_ID` is accepted as an alias. |
+
+See [Setting Up the Doctors' Telegram Group](../README.md#setting-up-the-doctors-telegram-group)
+in the root README for the full bot → group → chat-ID walkthrough.
 
 Secrets are loaded from `backend/.env` via `python-dotenv`. `.env` is
 git-ignored; never commit it.
@@ -127,4 +131,6 @@ python -m scripts.verify_features
 - **`edge-tts` failures** — the TTS engine falls back to `gTTS` automatically.
   Look for `⚠️ edge-tts failed` in the backend logs.
 - **Telegram alerts not firing** — the dispatcher logs a warning and returns
-  `False` when `TELEGRAM_BOT_TOKEN` / `TELEGRAM_DOCTOR_CHAT_ID` are not set.
+  `False` when `TELEGRAM_BOT_TOKEN` / `TELEGRAM_DOCTOR_CHAT_ID` are not set,
+  or when the bot has not been added to the hospital doctors' Telegram
+  group whose ID is in `TELEGRAM_DOCTOR_CHAT_ID`.
