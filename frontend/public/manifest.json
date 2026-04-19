@@ -1,0 +1,10 @@
+{
+    "name": "Ethio-HealthBridge",
+    "short_name": "HealthBridge",
+    "description": "Voice-first AI health assistant for Ethiopia",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#2e1d15",
+    "theme_color": "#22140e",
+    "orientation": "portrait"
+}
