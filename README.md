@@ -6,8 +6,10 @@
 medical-guidance system that accepts **Amharic voice, text, and images** and
 responds in natural Amharic speech. Its answers are grounded in official
 **Ethiopian Ministry of Health (MoH) clinical guidelines** via a retrieval-augmented
-generation (RAG) pipeline, and it includes an automatic red-flag emergency
-detector that dispatches a clinical alert to a hospital doctors' Telegram group.
+generation (RAG) pipeline. Patients can also escalate any conversation to a
+hospital doctors' Telegram group on demand — either automatically when a
+red-flag symptom is detected, or manually by tapping *ሐኪም ያማክሩ*
+("Consult a doctor").
 
 > ⚠️ **Medical disclaimer.** This project is a research/hackathon prototype. It
 > is **not** a substitute for professional medical advice, diagnosis, or
@@ -53,9 +55,14 @@ detector that dispatches a clinical alert to a hospital doctors' Telegram group.
 - **Red-Flag Emergency Mode.** A keyword/semantic triage layer detects
   life-threatening symptoms (chest pain, severe bleeding, unconsciousness,
   etc.) and returns an immediate 912 prompt, bypassing the LLM path.
-- **Doctor Escalation.** When a red flag fires (or the user taps *ሐኪም ያማክሩ*),
-  a structured clinical summary is pushed to a Telegram group of hospital
-  doctors so the on-call clinician can pick it up immediately.
+- **Doctor Escalation (automatic + on-demand).** A structured clinical
+  summary can be pushed to a Telegram group of hospital doctors in two
+  ways:
+  - **Automatically** when the red-flag triage layer detects a
+    life-threatening symptom; or
+  - **On demand** at any point in the conversation when the patient taps
+    *ሐኪም ያማክሩ* ("Consult a doctor") — even for routine, non-emergency
+    questions — so any on-call clinician in the group can take over.
 - **Outbreak Hotspot Tracking.** Reported symptoms are aggregated per Addis
   Ababa sub-city and surfaced via an admin dashboard; crossing a threshold
   raises an outbreak alert.
@@ -352,7 +359,9 @@ Multipart form: `image` (required, image file). Returns JSON with the Amharic
 
 ### `POST /api/hakim-yamakru`
 JSON body: a patient-summary object as returned by `/voice-chat` or
-`/text-chat`. Triggers a Telegram doctor alert. Returns
+`/text-chat`. Pushes the summary to the hospital doctors' Telegram group.
+This endpoint is what the *ሐኪም ያማክሩ* ("Consult a doctor") button calls and
+can be triggered for **any** conversation, not only emergencies. Returns
 `{"status": "success"}` on success.
 
 ### `GET /api/hotspots`

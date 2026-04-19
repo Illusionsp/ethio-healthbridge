@@ -85,7 +85,8 @@ deploying, serve the frontend over HTTPS.
 
 - `/` — Main chat experience: voice (push-to-talk), text input, and camera
   capture for medicine labels. Handles red-flag emergency flows, the
-  *ሐኪም ያማክሩ* ("Consult a doctor") escalation button, and the mock emergency
+  *ሐኪም ያማክሩ* ("Consult a doctor") escalation button — which can be tapped
+  during any conversation, not only emergencies — and the mock emergency
   transport button.
 - `/admin` — Simple dashboard that polls `GET /api/hotspots` and renders the
   sub-city → symptom → count registry for outbreak monitoring.

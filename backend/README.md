@@ -87,7 +87,7 @@ five minutes.
 | POST   | `/api/voice-chat`       | Multipart audio → Amharic transcription + Amharic audio reply. |
 | POST   | `/api/text-chat`        | JSON text → Amharic audio reply. |
 | POST   | `/api/vision-analyze`   | Multipart image → Amharic medicine-label analysis. |
-| POST   | `/api/hakim-yamakru`    | Push a patient summary to the hospital doctors' Telegram group. |
+| POST   | `/api/hakim-yamakru`    | Push a patient summary to the hospital doctors' Telegram group (used both for automatic red-flag escalation and for the user-initiated *ሐኪም ያማክሩ* button on any conversation). |
 | GET    | `/api/hotspots`         | Current sub-city symptom hotspot registry. |
 | GET    | `/api/audio/{filename}` | Stream a generated TTS MP3. |
 | GET    | `/pdfs/{filename}`      | Static mount for the raw MoH PDFs used as citations. |
